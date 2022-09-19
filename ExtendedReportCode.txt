@@ -1,0 +1,154 @@
+==> EXTENDED REPORT
+
+
+package Testng;
+
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+import org.openqa.selenium.By;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.io.FileHandler;
+
+import org.testng.Assert;
+import org.testng.ITestResult;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.AfterSuite;
+import org.testng.annotations.AfterTest;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeTest;
+import org.testng.annotations.Test;
+
+import com.aventstack.extentreports.ExtentReports;
+import com.aventstack.extentreports.ExtentTest;
+import com.aventstack.extentreports.Status;
+import com.aventstack.extentreports.reporter.ExtentHtmlReporter;
+import com.aventstack.extentreports.reporter.configuration.Theme;
+
+import io.github.bonigarcia.wdm.WebDriverManager;
+
+public class ExtendedReports {
+	
+	WebDriver driver;
+	String baseurl = "https://www.facebook.com";
+	ExtentHtmlReporter reporter;			// To change Look and feel (Theme, Document title etc)
+	ExtentTest test;					// Created documents updation 
+	ExtentReports extent;				// Entry details (Environment details, Edit)
+	
+	// Here reporter, test, extent are for reference. its objects are created in methods.
+	
+	@BeforeTest
+	public void setUpExtentReport() 
+	{
+		reporter = new ExtentHtmlReporter("./Reports/myreport1.html"); 	
+		// Here ./foldername/ is used in path to save reports in working project directory
+		reporter.config().setDocumentTitle("Automationreport");		// Document Title
+		reporter.config().setReportName("Functional test");			// Report Heading
+		reporter.config().setTheme(Theme.DARK);					// Theme
+		
+		extent = new ExtentReports();					// Entering environment details
+		extent.attachReporter(reporter);				// Attach editable details (reporter)
+		extent.setSystemInfo("hostname", "localhost");		// To pass system info
+		extent.setSystemInfo("os", "window11");
+		extent.setSystemInfo("testername", "Anita");
+		extent.setSystemInfo("Browser Name", "chrome");	
+		
+		WebDriverManager.chromedriver().setup();
+		driver = new ChromeDriver();
+		driver.manage().window().maximize();
+	}
+	
+	@BeforeMethod
+	public void url() {
+		driver.get(baseurl);
+	}
+	
+	@Test
+	public void fbtitleverification() throws IOException
+	{
+		test = extent.createTest("FbTitleVerification");
+		String exp = "Facebook";
+		String actual = driver.getTitle();
+		Assert.assertEquals(exp, actual);			//if or assert
+		System.out.println("Actual Title : "+actual);
+	}
+	
+	@Test
+	public void fbbuttontest() throws IOException
+	{
+		test = extent.createTest("FbButtonTest");
+		String buttontext = driver.findElement(By.xpath("//button[@name='login']")).getText();
+		Assert.assertEquals(buttontext, "register");
+	}
+
+	@Test
+	public void fblogotest() throws IOException
+	{
+		test = extent.createTest("FbLogoTest");
+		boolean b = driver.findElement(By.xpath("//*[@id=\"content\"]/div/div/div/div[1]/div/img")).isDisplayed();
+		Assert.assertTrue(b);
+	}
+	
+	
+	@AfterMethod
+	public void reportGen(ITestResult result) throws IOException { //Report will generate after each @Test 
+		
+		if(result.getStatus() == ITestResult.FAILURE) 
+		{
+			test.log(Status.FAIL, "Test case failed is "+result.getName());
+			test.log(Status.FAIL, "Test case failed is "+result.getThrowable());  //Failure reason
+			
+			//if failure happens we want to take screenshots 
+			String screenshotpath = ExtendedReports.screenshotMethod(driver, result.getName());
+			test.addScreenCaptureFromPath(screenshotpath);
+			
+		}else if(result.getStatus()==ITestResult.SKIP){
+			test.log(Status.SKIP, "Test case skipped is "+result.getName());
+		}
+		else if(result.getStatus()==ITestResult.SUCCESS){
+			test.log(Status.PASS, "Test case Passed is "+result.getName());
+		} 
+	}
+	
+	//By using static we can call screenshotMethod without object 
+
+	public static String screenshotMethod(WebDriver driver,String screenshotname) throws IOException
+	{
+		String datename = new SimpleDateFormat("yyyyMMddhhmmss").format(new Date());
+		File src=((TakesScreenshot)driver).getScreenshotAs(OutputType.FILE);
+		String destination ="./Screenshots/"+screenshotname+datename+".png";
+		FileHandler.copy(src, new File(destination));
+
+		return destination;
+	}
+
+
+
+	@AfterSuite
+	public void teardown() {
+		extent.flush();
+	}
+	
+
+	@AfterTest
+	public void browserClose() {
+		driver.close();
+		System.out.println("Test completed Successfully");
+	}
+
+}
+
+
+
+// @BeforeTest ==> @BeforeMethod ==> @Test fbbuttontest ==> @AfterMethod ==> @AfterSuite
+// @BeforeMethod ==> @Test fblogotest ==> @AfterMethod ==> @AfterSuite
+// @BeforeMethod ==> @Test fbtitleverification ==> @AfterMethod ==> @AfterSuite ==> @AfterTest
+
+
+//File finaldestination=new File(destination);
+//FileHandler.copy(src, finaldestination);
