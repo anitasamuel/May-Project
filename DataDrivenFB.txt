@@ -1,0 +1,207 @@
+
+FB DATA-DRIVEN TEST
+-------------------
+
+
+package basepkg;
+
+import java.time.Duration;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import io.github.bonigarcia.wdm.WebDriverManager;
+
+public class Baseclass {
+
+	public WebDriver driver;
+	
+	@BeforeClass
+	public void precondition() {
+		WebDriverManager.chromedriver().setup();
+		driver = new ChromeDriver();
+		driver.get("https://www.facebook.com");
+		driver.manage().window().maximize();
+		driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(40)); 
+	}
+	
+	@AfterClass
+    public void postCondition() throws InterruptedException {
+        Thread.sleep(5000);
+        driver.quit();
+	}
+}
+
+
+
+************************************************************************************************************************************************************
+
+
+package utilities;
+
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.xssf.usermodel.XSSFCell;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+public class Excelutil {
+
+	public static String getCellValue(String xl, String Sheet, int r, int c) {
+		
+		try {
+            FileInputStream fis = new FileInputStream(xl);
+            Workbook wb = WorkbookFactory.create(fis);
+			
+			XSSFCell cell = (XSSFCell)wb.getSheet(Sheet).getRow(r).getCell(c);
+			if(cell.getCellType() == CellType.STRING) {
+				return cell.getStringCellValue();
+			}
+			else {
+				return cell.getRawValue();
+			}
+		}
+		catch(Exception e) {
+			return "";
+		}
+	}
+	
+	public static int getRowCount(String xl, String Sheet) {
+		
+		try {
+			FileInputStream fis = new FileInputStream(xl);
+            Workbook wb = WorkbookFactory.create(fis);
+			
+			return wb.getSheet(Sheet).getLastRowNum();
+		}
+		catch(Exception e) {
+			return 0;
+		}
+	}
+	
+	 public static void setcellvalue(String path,String value,String sheet,int r,int c) throws Exception {
+		 
+   	  	FileInputStream fis = new FileInputStream(path);
+   	  	XSSFWorkbook workbook = new XSSFWorkbook(fis);
+		  
+   	  	// spreadsheet object
+   	  	XSSFSheet spreadsheet = workbook.getSheet(sheet);
+
+   	  	//creating a row object
+     	XSSFRow row;
+     	row = spreadsheet.getRow(r);
+    
+     	Cell cell = row.createCell(c);
+     	cell.setCellValue("Status");
+     
+     	for(int i=1;i<=spreadsheet.getLastRowNum();i++) {
+			
+     		XSSFRow row1 = spreadsheet.getRow(i);
+		 
+     		Cell cell1 = row1.createCell(c);
+     		cell1.setCellValue(value);
+     		
+     	}
+     	
+     	FileOutputStream fos1 = new FileOutputStream(path);
+     	workbook.write(fos1);
+     	workbook.close();     
+     }
+}
+
+
+
+************************************************************************************************************************************************************
+
+
+package pagepkg;
+
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+
+public class Fbpage {
+
+	WebDriver driver;
+
+	By emailIdField = By.id("email");
+	By password = By.id("pass");
+	By loginButton = By.name("login");
+	
+	public Fbpage(WebDriver driver) {
+	this.driver = driver;
+	}
+	
+	public void Login(String UN, String PWD) {
+		driver.findElement(emailIdField).sendKeys(UN);
+		driver.findElement(password).sendKeys(PWD);
+		driver.findElement(emailIdField).clear();
+		driver.findElement(password).clear(); 
+	}
+	
+	public void ClickLoginButton() {
+		driver.findElement(loginButton).click();
+	}
+
+}
+
+
+
+************************************************************************************************************************************************************
+
+
+package testpkg;
+
+import org.testng.annotations.Test;
+import basepkg.Baseclass;
+import pagepkg.Fbpage;
+import utilities.Excelutil;
+
+public class Fbtest extends Baseclass{
+	
+	@Test
+	public void verifyLoginWithValidCred() throws Exception {
+		
+		Fbpage p1 = new Fbpage(driver);
+		
+		//Reading the data from excel file by the specified path
+		String xl = "D:\\Software Testing\\Automation\\FbUserPass.xlsx";
+		
+		String sheet = "Sheet1";
+		
+		int rowCount = Excelutil.getRowCount(xl, sheet);
+		
+		for (int i = 1; i <= rowCount; i++) 
+		{
+			String UserName = Excelutil.getCellValue(xl,sheet,i,0);
+			System.out.println("Username---"+UserName);
+			
+			String Pwd = Excelutil.getCellValue(xl,sheet,i,1);
+			System.out.println("Password---"+Pwd);
+			
+			//passing username and password as parameters
+			p1.Login(UserName,Pwd);
+			
+			//submitting the data by clicking on login button
+			p1.ClickLoginButton();
+			
+		
+		String expectedurl="https://www.facebook.com/login/?privacy_mutation_token=eyJ0eXBlIjowLCJjcmVhdGlvbl90aW1lIjoxNjIwMzg4MTQ0LCJjYWxsc2l0ZV9pZCI6MzgxMjI5MDc5NTc1OTQ2fQ%3D%3D";
+		String actualurl= driver.getCurrentUrl();
+		
+		if(actualurl.equals(expectedurl))
+		{
+			Excelutil.setcellvalue(xl,"Pass",sheet, i,2 );
+		}else {
+			Excelutil.setcellvalue(xl,"Fail",sheet, i,2 );
+		}
+
+		}
+		
+	}
+
+}
